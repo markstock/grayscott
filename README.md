@@ -1,6 +1,8 @@
 # grayscott
 Run a two-parameter Gray-Scott reaction-diffusion simulation using Kokkos for performance portability
 
+![textureimage](media/v_0010.png?raw=true "2D simulation after 1000 steps")
+
 ## Build
 The following works for me on my AMD Ryzen 3950X:
 
