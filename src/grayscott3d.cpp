@@ -54,6 +54,7 @@ int main(int argc, char* argv[]) {
   Kokkos::View<ST***> v("V", n, n, n);
   Kokkos::View<ST***> dudt("dU/dt", n, n, n);
   Kokkos::View<ST***> dvdt("dV/dt", n, n, n);
+  const double ncells = (double)n*n*n;
 
   // initialize the data
   Kokkos::parallel_for("init U",
@@ -152,7 +153,7 @@ int main(int argc, char* argv[]) {
     if (error) printf("encoder error %d: %s\n", error, lodepng_error_text(error));
   }
 
-
+  // write interval time
   const int timerout = 10;
   if (step%timerout == 0) {
     static int last_step = 0;
@@ -161,14 +162,14 @@ int main(int argc, char* argv[]) {
     double time_interval = (time_laplace+time_advect) - last_time;
     last_step = step+1;
     last_time = time_laplace+time_advect;
-    printf("%d steps averaged %e s at %e GF/s\n", step_interval, time_interval/step_interval, step_interval*n*n*(double)37*n/(time_interval*1e+9));
+    printf("%d steps averaged %e s at %e GF/s\n", step_interval, time_interval/step_interval, step_interval*ncells*33./(time_interval*1e+9));
   }
   }
 
   double time_tot = time_laplace+time_advect;
-  printf("  %d steps averaged %e s at %e GF/s\n", maxsteps+1, time_tot/(maxsteps+1), (maxsteps+1)*n*n*(double)37*n/(time_tot*1e+9));
-  printf("    laplace portion averaged %e s at %e GF/s\n", time_laplace/(maxsteps+1), (maxsteps+1)*n*n*(double)16*n/(time_laplace*1e+9));
-  printf("    update portion averaged %e s at %e GF/s\n", time_advect/(maxsteps+1), (maxsteps+1)*n*n*(double)21*n/(time_advect*1e+9));
+  printf("  %d steps averaged %e s at %e GF/s\n", maxsteps+1, time_tot/(maxsteps+1), (maxsteps+1)*ncells*33./(time_tot*1e+9));
+  printf("    laplace portion averaged %e s at %e GF/s\n", time_laplace/(maxsteps+1), (maxsteps+1)*ncells*16./(time_laplace*1e+9));
+  printf("    update portion averaged %e s at %e GF/s\n", time_advect/(maxsteps+1), (maxsteps+1)*ncells*17./(time_advect*1e+9));
 
   // write all slices
   {
