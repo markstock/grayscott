@@ -18,11 +18,13 @@ And for CUDA:
 Both programs take one argument: the size of the array in each dimension.
 
 	./src/grayscott2d.bin 4096
-	./src/grayscott3d.bin 1024
+	./src/grayscott3d.bin 256
 
 The first command will run a 2D simulation and write out files that are 4096x4096 pixels.
-The second will run a 3D simulation of a 1024x1024x1024 cube, writing a center plane every
-100 steps, and at the end will write each plane as a png file.
+The second will run a 3D simulation of a 256x256x256 cube, writing a center plane every
+100 steps, and at the end will write each plane as a png file. These sizes were selected
+because each runs the simulation over 2^24 cells. This is also achievable with 32768 and
+1024, respectively (1B cells, 16 GB needed).
 
 ## Performance
 On a 16-core AMD Ryzen 9 3950X, a 2000^2 problem solves at ~0.02s per step, and a 256^3 solves in ~0.08s per step.
