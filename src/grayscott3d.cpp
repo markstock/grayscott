@@ -41,7 +41,9 @@ int main(int argc, char* argv[]) {
   Kokkos::Random_XorShift64_Pool<> random_pool(/*seed=*/12345);
 
   // several range policies
-  Kokkos::MDRangePolicy<Kokkos::Rank<3>> mdrpolicy({{0, 0, 0}}, {{n, n, n}});
+  Kokkos::MDRangePolicy<Kokkos::Rank<3>> mdrpolicy({{0, 0, 0}}, {{n, n, n}});	// faster for openmp
+  //Kokkos::MDRangePolicy<Kokkos::Rank<3>> mdrpolicy({{0, 0, 0}}, {{n, n, n}}, {{64, 4, 2}});	// faster for cuda
+  //Kokkos::MDRangePolicy<Kokkos::Rank<3>> mdrpolicy({{0, 0, 0}}, {{n, n, n}}, {{2, 4, 64}});	// worse for both
 
   // begin timing
   Kokkos::Timer timer;
@@ -62,8 +64,10 @@ int main(int argc, char* argv[]) {
                        KOKKOS_LAMBDA (const int i, const int j, const int k) { v(i,j,k) = vi; } );
 
   Kokkos::fence();
-  double time_64 = timer.seconds();
-  printf("time to init %e s\n", time_64);
+  double time_init = timer.seconds();
+  printf("time to init %e s\n", time_init);
+  double time_laplace = 0.;
+  double time_advect = 0.;
 
   // loop over time
   for (int step=0; step<maxsteps+1; ++step) {
@@ -95,7 +99,10 @@ int main(int argc, char* argv[]) {
       dvdt(i,j,k) = Dv * ((v(im1,j,k)+v(ip1,j,k)+v(i,jm1,k)+v(i,jp1,k)+v(i,j,km1)+v(i,j,kp1))/6. - v(i,j,k));
     }
   );
+  Kokkos::fence();
+  time_laplace += timer.seconds();
 
+  timer.reset();
   Kokkos::parallel_for("finish d/dt",
     mdrpolicy,
     KOKKOS_LAMBDA (const int i, const int j, const int k) {
@@ -120,8 +127,8 @@ int main(int argc, char* argv[]) {
   );
 
   Kokkos::fence();
-  time_64 = timer.seconds();
-  printf("  step %d took %e s at %e GF/s\n", step, time_64, n*n*(double)30*n/(time_64*1e+9));
+  time_advect += timer.seconds();
+  printf("."); fflush(stdout);
 
   // save as a png
   const int stepperout = 100;
@@ -144,7 +151,24 @@ int main(int argc, char* argv[]) {
     error = lodepng::encode(outfile, imgdata, n, n, LCT_GREY, 8);
     if (error) printf("encoder error %d: %s\n", error, lodepng_error_text(error));
   }
+
+
+  const int timerout = 10;
+  if (step%timerout == 0) {
+    static int last_step = 0;
+    static double last_time = 0.;
+    int step_interval = step - last_step + 1;
+    double time_interval = (time_laplace+time_advect) - last_time;
+    last_step = step+1;
+    last_time = time_laplace+time_advect;
+    printf("%d steps averaged %e s at %e GF/s\n", step_interval, time_interval/step_interval, step_interval*n*n*(double)37*n/(time_interval*1e+9));
   }
+  }
+
+  double time_tot = time_laplace+time_advect;
+  printf("  %d steps averaged %e s at %e GF/s\n", maxsteps+1, time_tot/(maxsteps+1), (maxsteps+1)*n*n*(double)37*n/(time_tot*1e+9));
+  printf("    laplace portion averaged %e s at %e GF/s\n", time_laplace/(maxsteps+1), (maxsteps+1)*n*n*(double)16*n/(time_laplace*1e+9));
+  printf("    update portion averaged %e s at %e GF/s\n", time_advect/(maxsteps+1), (maxsteps+1)*n*n*(double)21*n/(time_advect*1e+9));
 
   // write all slices
   {
