@@ -29,10 +29,10 @@ int main(int argc, char* argv[]) {
 
   const ST ui = 0.5;		// initial uniform value for U
   const ST vi = 0.5;
-  const ST Du = 0.8;		// diffusion rate of U
-  const ST Dv = 0.4;
-  const ST F  = 0.02;	// growth rate of U vs. V
-  const ST k  = 0.048;	// additional kill rate of V
+  const ST Du = 0.4;		// diffusion rate of U
+  const ST Dv = 0.2;
+  const ST F  = 0.02;		// growth rate of U vs. V
+  const ST kr = 0.048;		// additional kill rate of V
   const ST rs = 0.1;		// scale of random noise
   const ST dt = 1.0;
   const int32_t maxsteps = 200;
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
       auto generator = random_pool.get_state();
       dudt(i,j) += F*(1.0-u(i,j)) - uv2 + rs*(ST)generator.drand(-1., 1.);
       random_pool.free_state(generator);
-      dvdt(i,j) += uv2 - (F+k)*v(i,j);
+      dvdt(i,j) += uv2 - (F+kr)*v(i,j);
     }
   );
 
