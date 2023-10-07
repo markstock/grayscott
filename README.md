@@ -29,9 +29,8 @@ because each runs the simulation over 2^24 cells. This is also achievable with 3
 1024, respectively (1B cells, 16 GB needed).
 
 ## Performance
-On a 16-core AMD Ryzen 9 3950X, a 2000^2 problem solves at ~0.02s per step, and a 256^3 solves in ~0.08s per step.
-Adding block sizes to the execution policy allows 0.0015 sec per step for the 2048^2 solution, but that's still
-only 70 GF/s on a 3070 Ti.
+On a 16-core AMD Ryzen 9 3950X, the 4096^2 problem solves at ~0.24s per step, and a 256^3 solves in ~0.075s per step.
+On a 3070Ti with Cuda 11.2, the 4096^2 problem achieves 0.005s and the 256^3 sees 
 
 ## Background
 

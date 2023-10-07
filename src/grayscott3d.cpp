@@ -35,13 +35,13 @@ int main(int argc, char* argv[]) {
   const ST kr = 0.048;		// additional kill rate of V
   const ST rs = 0.1;		// scale of random noise
   const ST dt = 1.0;
-  const int32_t maxsteps = 2000;
+  const int32_t maxsteps = 200;
 
   // prepare a set of RNGs
   Kokkos::Random_XorShift64_Pool<> random_pool(/*seed=*/12345);
 
   // several range policies
-  Kokkos::MDRangePolicy<Kokkos::Rank<3>> policyA({{0, 0, 0}}, {{n, n, n}});
+  Kokkos::MDRangePolicy<Kokkos::Rank<3>> mdrpolicy({{0, 0, 0}}, {{n, n, n}});
 
   // begin timing
   Kokkos::Timer timer;
@@ -55,10 +55,10 @@ int main(int argc, char* argv[]) {
 
   // initialize the data
   Kokkos::parallel_for("init U",
-                       policyA,
+                       mdrpolicy,
                        KOKKOS_LAMBDA (const int i, const int j, const int k) { u(i,j,k) = ui; } );
   Kokkos::parallel_for("init V",
-                       policyA,
+                       mdrpolicy,
                        KOKKOS_LAMBDA (const int i, const int j, const int k) { v(i,j,k) = vi; } );
 
   Kokkos::fence();
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
   timer.reset();
 
   Kokkos::parallel_for("calc laplace U",
-    policyA,
+    mdrpolicy,
     KOKKOS_LAMBDA (const int i, const int j, const int k) {
       const int im1 = (i==0 ? n-1 : i-1);
       const int ip1 = (i==n-1 ? 0 : i+1);
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
   );
 
   Kokkos::parallel_for("calc laplace V",
-    policyA,
+    mdrpolicy,
     KOKKOS_LAMBDA (const int i, const int j, const int k) {
       const int im1 = (i==0 ? n-1 : i-1);
       const int ip1 = (i==n-1 ? 0 : i+1);
@@ -97,7 +97,7 @@ int main(int argc, char* argv[]) {
   );
 
   Kokkos::parallel_for("finish d/dt",
-    policyA,
+    mdrpolicy,
     KOKKOS_LAMBDA (const int i, const int j, const int k) {
       const ST uv2 = u(i,j,k)*v(i,j,k)*v(i,j,k);
       auto generator = random_pool.get_state();
@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
   );
 
   Kokkos::parallel_for("finish step",
-    policyA,
+    mdrpolicy,
     KOKKOS_LAMBDA (const int i, const int j, const int k) {
       u(i,j,k) += dt * dudt(i,j,k);
       v(i,j,k) += dt * dvdt(i,j,k);
@@ -121,22 +121,26 @@ int main(int argc, char* argv[]) {
 
   Kokkos::fence();
   time_64 = timer.seconds();
-  printf("  step %d took %e s at %e GF/s\n", step, time_64, n*n*(double)26*n/(time_64*1e+9));
+  printf("  step %d took %e s at %e GF/s\n", step, time_64, n*n*(double)30*n/(time_64*1e+9));
 
   // save as a png
-  if (step%10 == 0) {
+  const int stepperout = 100;
+  if (step%stepperout == 0) {
     char outfile[255];
     std::vector<unsigned char> imgdata(n*n);
     unsigned int error;
     int kslice = n/2;
+    Kokkos::View<ST***>::HostMirror vh = Kokkos::create_mirror_view(v);
+    Kokkos::deep_copy(vh, v);
+    Kokkos::fence();
 
-    //sprintf(outfile, "u_%04d.png", step/10);
+    //sprintf(outfile, "u_%04d.png", step/stepperout);
     //for (int i=0; i<n; ++i) for (int j=0; j<n; ++j) imgdata[i*n+j] = u(i,j)*255;
     //error = lodepng::encode(outfile, imgdata, n, n, LCT_GREY, 8);
     //if (error) printf("encoder error %d: %s\n", error, lodepng_error_text(error));
 
-    sprintf(outfile, "v_%04d.png", step/10);
-    for (int i=0; i<n; ++i) for (int j=0; j<n; ++j) imgdata[i*n+j] = v(i,j,kslice)*255;
+    sprintf(outfile, "v_%04d.png", step/stepperout);
+    for (int i=0; i<n; ++i) for (int j=0; j<n; ++j) imgdata[i*n+j] = vh(i,j,kslice)*255;
     error = lodepng::encode(outfile, imgdata, n, n, LCT_GREY, 8);
     if (error) printf("encoder error %d: %s\n", error, lodepng_error_text(error));
   }
@@ -147,9 +151,12 @@ int main(int argc, char* argv[]) {
     char outfile[255];
     std::vector<unsigned char> imgdata(n*n);
     unsigned int error;
+    Kokkos::View<ST***>::HostMirror vh = Kokkos::create_mirror_view(v);
+    Kokkos::deep_copy(vh, v);
+    Kokkos::fence();
     for (int k=0; k<n; ++k) {
       sprintf(outfile, "slice_%04d.png", k);
-      for (int i=0; i<n; ++i) for (int j=0; j<n; ++j) imgdata[i*n+j] = v(i,j,k)*255;
+      for (int i=0; i<n; ++i) for (int j=0; j<n; ++j) imgdata[i*n+j] = vh(i,j,k)*255;
       error = lodepng::encode(outfile, imgdata, n, n, LCT_GREY, 8);
       if (error) printf("encoder error %d: %s\n", error, lodepng_error_text(error));
     }
